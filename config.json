@@ -1,0 +1,11 @@
+{
+  "event": "2018TaiwanChampionship",
+  "competitor": {
+    "wcaid": "2003BRUCH01",
+    "year": "1970",
+    "month": "1",
+    "day": "1",
+    "email": "username@example.com",
+    "event": "33"
+  }
+}
