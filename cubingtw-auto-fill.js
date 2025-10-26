@@ -16,13 +16,43 @@ async function fillField(page, type, selector, value) {
     console.log(`${selector} -> ${type}`);
 }
 
+async function waitUntilValid(page, url) {
+    let i = 1;
+    while (true) {
+        const valid = (await page.locator('input[id^="WCAID_input_"]').count()) > 0;
+        if (valid) {
+            console.log("找到有效 WCAID 欄位");
+            return;
+        }
+
+        const now = new Date();
+        const taiwanTime = new Intl.DateTimeFormat('en-TW', {
+            timeZone: 'Asia/Taipei',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        }).format(now);
+
+        console.log(`waiting... (${taiwanTime}) (${i})`);
+        i++;
+        await page.reload({
+            waitUntil: "domcontentloaded"
+        });
+    }
+}
+
 (async () => {
     const browser = await chromium.launch({ headless: false });
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await context.newPage();
 
     try {
-        await page.goto(`https://cubing-tw.net/event/${config.event}/registration/select`, { waitUntil: "domcontentloaded" });
+		const url = `https://cubing-tw.net/event/${config.event}/registration/select`;
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+		await waitUntilValid(page, url);
 
         if (!competitor.new) {
             await fillField(page, "fill", 'input[id^="WCAID_input_"]', competitor.wcaid);
