@@ -1,5 +1,6 @@
 {
   "name": "cubingtw-auto-fill",
+  "type": "module",
   "version": "1.0.0",
   "description": "",
   "main": "cubingtw-auto-fill.js",
