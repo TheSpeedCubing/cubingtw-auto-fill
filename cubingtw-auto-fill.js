@@ -19,11 +19,6 @@ async function fillField(page, type, selector, value) {
 async function waitUntilValid(page, url) {
     let i = 1;
     while (true) {
-        const valid = (await page.locator('input[id^="WCAID_input_"]').count()) > 0;
-        if (valid) {
-            console.log("找到有效 WCAID 欄位");
-            return;
-        }
 
         const now = new Date();
         const taiwanTime = new Intl.DateTimeFormat('en-TW', {
@@ -36,23 +31,35 @@ async function waitUntilValid(page, url) {
             second: '2-digit',
         }).format(now);
 
-        console.log(`waiting... (${taiwanTime}) (${i})`);
+        console.log(`[${taiwanTime}] attempting... (${i})`);
+        const r = await page.goto(url, {waitUntil: "domcontentloaded"});
+		const canSelect = page.url().endsWith("/registration/select");
+		console.log("result: " + (canSelect ? "registration available." : "redirected to /registration"));
+      
+        if (canSelect) {  
+      //if ((await page.locator('input[id^="WCAID_input_"]').count()) > 0) {
+            return;
+        }
         i++;
-        await page.reload({
-            waitUntil: "domcontentloaded"
-        });
     }
 }
 
 (async () => {
     const browser = await chromium.launch({ headless: false });
-    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const context = await browser.newContext({ 
+	  viewport: null,
+	  serviceWorkers: 'block'
+	});
     const page = await context.newPage();
 
     try {
 		const url = `https://cubing-tw.net/event/${config.event}/registration/select`;
-        await page.goto(url, { waitUntil: "domcontentloaded" });
+		const events = Array.isArray(competitor.events)
+          ? competitor.events.map(String).map(s => s.trim()).filter(Boolean)
+          : [];
+
 		await waitUntilValid(page, url);
+
 
         if (!competitor.new) {
             await fillField(page, "fill", 'input[id^="WCAID_input_"]', competitor.wcaid);
@@ -65,7 +72,7 @@ async function waitUntilValid(page, url) {
                 { type: "select", selector: "#form_birthday_month", value: competitor.month },
                 { type: "select", selector: "#form_birthday_day", value: competitor.day },
                 { type: "fill", selector: "#form_email", value: competitor.email },
-                { type: "check", selector: "#form_event_" + competitor.event }
+                ...events.map(ev => ({ type: "check", selector: `#form_event_${ev}` })),
             ];
         } else {
             await page.click('button.btn.btn-outline-primary.btn-lg');
@@ -81,7 +88,7 @@ async function waitUntilValid(page, url) {
                 { type: "select", selector: "#form_birthday_month", value: competitor.month },
                 { type: "select", selector: "#form_birthday_day", value: competitor.day },
                 { type: "fill", selector: "#form_email", value: competitor.email },
-                { type: "check", selector: "#form_event_" + competitor.event }
+                ...events.map(ev => ({ type: "check", selector: `#form_event_${ev}` })),
             ];
         }
 
