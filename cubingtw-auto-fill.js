@@ -1,7 +1,57 @@
 import { chromium } from "playwright";
 import fs from "fs";
 
-const config = JSON.parse(fs.readFileSync("config.json", "utf-8"));
+// ===== 命令列參數處理 =====
+const args = process.argv.slice(2);
+let configFile = null;
+let configFromArgs = {};
+
+for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--config" && args[i + 1]) {
+        configFile = args[i + 1];
+        i++;
+    } else if (args[i].startsWith("--") && args[i + 1]) {
+        const key = args[i].slice(2);
+        configFromArgs[key] = args[i + 1];
+        i++;
+    } else {
+        console.error(`Invalid argument: ${args[i]}`);
+        process.exit(1);
+    }
+}
+
+if (configFile && Object.keys(configFromArgs).length > 0) {
+    console.error("Cannot use --config and other parameters at the same time.");
+    process.exit(1);
+}
+
+if (!configFile && Object.keys(configFromArgs).length === 0) {
+    console.error("Usage: node cubingtw-auto-fill.js --config <file> OR node cubingtw-auto-fill.js --<key> <value> ...");
+    process.exit(1);
+}
+
+let config;
+if (configFile) {
+    config = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+} else {
+    config = {
+        event: configFromArgs.event,
+        competitor: {
+            new: configFromArgs.new === "true",
+            wcaid: configFromArgs.wcaid,
+            english_name: configFromArgs.english_name,
+            local_name: configFromArgs.local_name,
+            country: configFromArgs.country,
+            gender: configFromArgs.gender,
+            year: configFromArgs.year,
+            month: configFromArgs.month,
+            day: configFromArgs.day,
+            email: configFromArgs.email,
+            events: configFromArgs.events ? configFromArgs.events.split(",") : []
+        }
+    };
+}
+
 const competitor = config.competitor;
 
 async function fillField(page, type, selector, value) {
@@ -19,7 +69,6 @@ async function fillField(page, type, selector, value) {
 async function waitUntilValid(page, url) {
     let i = 1;
     while (true) {
-
         const now = new Date();
         const taiwanTime = new Intl.DateTimeFormat('en-TW', {
             timeZone: 'Asia/Taipei',
@@ -32,12 +81,11 @@ async function waitUntilValid(page, url) {
         }).format(now);
 
         console.log(`[${taiwanTime}] attempting... (${i})`);
-        const r = await page.goto(url, {waitUntil: "domcontentloaded"});
-		const canSelect = page.url().endsWith("/registration/select");
-		console.log("result: " + (canSelect ? "registration available." : "redirected to /registration"));
+        await page.goto(url, {waitUntil: "domcontentloaded"});
+        const canSelect = page.url().endsWith("/registration/select");
+        console.log("result: " + (canSelect ? "registration available." : "redirected to /registration"));
       
         if (canSelect) {  
-      //if ((await page.locator('input[id^="WCAID_input_"]').count()) > 0) {
             return;
         }
         i++;
@@ -47,19 +95,18 @@ async function waitUntilValid(page, url) {
 (async () => {
     const browser = await chromium.launch({ headless: false });
     const context = await browser.newContext({ 
-	  viewport: null,
-	  serviceWorkers: 'block'
-	});
+        viewport: null,
+        serviceWorkers: 'block'
+    });
     const page = await context.newPage();
 
     try {
-		const url = `https://cubing-tw.net/event/${config.event}/registration/select`;
-		const events = Array.isArray(competitor.events)
-          ? competitor.events.map(String).map(s => s.trim()).filter(Boolean)
-          : [];
+        const url = `https://cubing-tw.net/event/${config.event}/registration/select`;
+        const events = Array.isArray(competitor.events)
+            ? competitor.events.map(String).map(s => s.trim()).filter(Boolean)
+            : [];
 
-		await waitUntilValid(page, url);
-
+        await waitUntilValid(page, url);
 
         if (!competitor.new) {
             await fillField(page, "fill", 'input[id^="WCAID_input_"]', competitor.wcaid);
@@ -78,8 +125,8 @@ async function waitUntilValid(page, url) {
             await page.click('button.btn.btn-outline-primary.btn-lg');
             console.log("首次報名");
 
-			await fillField(page, "fill", "#form_english_name", competitor.english_name);
-			await fillField(page, "fill", "#form_local_name", competitor.local_name);
+            await fillField(page, "fill", "#form_english_name", competitor.english_name);
+            await fillField(page, "fill", "#form_local_name", competitor.local_name);
 
             var fields = [
                 { type: "fill", selector: "#form_country", value: competitor.country },

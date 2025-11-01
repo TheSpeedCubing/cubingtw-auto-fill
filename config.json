@@ -6,6 +6,6 @@
     "month": "1",
     "day": "1",
     "email": "username@example.com",
-    "event": "33"
+    "events": ["33", "44"]
   }
 }

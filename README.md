@@ -16,30 +16,41 @@
    cd cubingtw-auto-fill
    ```
 
-2. Update the Configuration File:
-   (please see the **Configuration** below)
-   
 2. Install dependencies:
    ```bash
    npm install
    npx playwright install chromium
    ```
-   
-3. Run the script:
+3. Update the Configuration File (optional if using command-line arguments):
+   - You can either use a `config.json` file **or** provide all settings via command-line arguments.
+   - **Cannot use both at the same time.**
+
+4. Run the script:  
+   Using config file
    ```bash
-   node cubing-tw-auto-fill.js 
+   node cubing-tw-auto-fill.js --config config.json
+   ```
+   Using command-line arguments
+   ```bash
+   node cubing-tw-auto-fill.js \
+     --event 2018TaiwanChampionship \
+     --wcaid 2003BRUCH01 \
+     --year 1970 \
+     --month 1 \
+     --day 1 \
+     --email username@example.com \
+     --events 33,44
    ```
 
 ### Configuration
 
 `event`: 
-- 例: `https://cubing-tw.net/event/2018TaiwanChampionship` -> `2018TaiwanChampionship`
+- for instance: `https://cubing-tw.net/event/2018TaiwanChampionship` -> `2018TaiwanChampionship`
 
 `competitor.event`: 
-- 要報名的項目 (只能選一個)
-- 如果比賽有3x3x3，可以先選 `33`，之後再去繳費頁面更改項目
+- The event(s) you want to register for.
 
-**有 WCAID 的選手**
+**Competitors with a WCA ID**
 ```json
 {
   "event": "2018TaiwanChampionship",
@@ -49,12 +60,12 @@
     "month": "1",
     "day": "1",
     "email": "username@example.com",
-    "event": "33"
+    "events": ["33", "44"]
   }
 }
 ```
 
-**首次參賽的選手**
+**First-time competitors**
 ```json
 {
   "event": "2018TaiwanChampionship",
@@ -68,7 +79,7 @@
     "month": "1",
     "day": "1",
     "email": "username@example.com",
-    "event": "33"
+    "events": ["33", "44"]
   }
 }
 ```
