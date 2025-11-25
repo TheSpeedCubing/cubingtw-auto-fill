@@ -28,11 +28,11 @@
 4. Run the script:  
    Using config file
    ```bash
-   node cubing-tw-auto-fill.js --config config.json
+   node cubingtw-auto-fill.js --config config.json
    ```
    Using command-line arguments
    ```bash
-   node cubing-tw-auto-fill.js \
+   node cubingtw-auto-fill.js \
      --event 2018TaiwanChampionship \
      --wcaid 2003BRUCH01 \
      --year 1970 \
