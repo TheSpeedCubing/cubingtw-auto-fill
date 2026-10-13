@@ -38,17 +38,17 @@
      --year 1970 \
      --month 1 \
      --day 1 \
-     --email username@example.com \
-     --events 33,44
+     --email username@example.com
    ```
+   The script reads the registration start time (報名時間) from the event's `/registration` page, waits until 10 seconds before it, then keeps reloading until registration opens.
 
 ### Configuration
 
 `event`: 
 - for instance: `https://cubing-tw.net/event/2018TaiwanChampionship` -> `2018TaiwanChampionship`
 
-`competitor.event`: 
-- The event(s) you want to register for.
+Events are not configurable: the script registers for one event only, the first one available in the form, in this order:  
+`33`, `22`, `44`, `55`, `66`, `77`, `3bld`, `3fmc`, `3oh`, `clock`, `mega`, `pyra`, `skewb`, `sq1`, `4bld`, `5bld`, `mbld`
 
 **Competitors with a WCA ID**
 ```json
@@ -59,8 +59,7 @@
     "year": "1970",
     "month": "1",
     "day": "1",
-    "email": "username@example.com",
-    "events": ["33", "44"]
+    "email": "username@example.com"
   }
 }
 ```
@@ -78,8 +77,7 @@
     "year": "1970",
     "month": "1",
     "day": "1",
-    "email": "username@example.com",
-    "events": ["33", "44"]
+    "email": "username@example.com"
   }
 }
 ```

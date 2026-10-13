@@ -5,7 +5,6 @@
     "year": "1970",
     "month": "1",
     "day": "1",
-    "email": "username@example.com",
-    "events": ["33", "44"]
+    "email": "username@example.com"
   }
 }

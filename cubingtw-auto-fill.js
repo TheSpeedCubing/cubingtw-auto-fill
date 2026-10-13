@@ -1,7 +1,6 @@
 import { chromium } from "playwright";
 import fs from "fs";
 
-// ===== 命令列參數處理 =====
 const args = process.argv.slice(2);
 let configFile = null;
 let configFromArgs = {};
@@ -46,8 +45,7 @@ if (configFile) {
             year: configFromArgs.year,
             month: configFromArgs.month,
             day: configFromArgs.day,
-            email: configFromArgs.email,
-            events: configFromArgs.events ? configFromArgs.events.split(",") : []
+            email: configFromArgs.email
         }
     };
 }
@@ -66,19 +64,69 @@ async function fillField(page, type, selector, value) {
     console.log(`${selector} -> ${type}`);
 }
 
+const EVENT_IDS = [
+    "33", "22", "44", "55", "66", "77",
+    "3bld", "3fmc", "3oh",
+    "clock", "mega", "pyra", "skewb", "sq1",
+    "4bld", "5bld", "mbld",
+];
+
+async function checkFirstEvent(page) {
+    await page.waitForSelector('[id^="form_event_"]', {state: "attached"});
+    for (const id of EVENT_IDS) {
+        const selector = `#form_event_${id}`;
+        if (await page.locator(selector).count() > 0) {
+            await page.check(selector);
+            console.log(`${selector} -> check`);
+            return;
+        }
+    }
+    throw new Error("no known event found in the form");
+}
+
+const REFRESH_LEAD_MS = 10 * 1000;
+
+function formatTaiwanTime(date) {
+    return new Intl.DateTimeFormat('en-TW', {
+        timeZone: 'Asia/Taipei',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    }).format(date);
+}
+
+async function getRegistrationStart(page, url) {
+    await page.goto(url, {waitUntil: "domcontentloaded"});
+    const period = page.locator('h3:has-text("報名時間") + p').first();
+    if (await period.count() === 0) {
+        return null;
+    }
+    const text = await period.textContent();
+    const m = text.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\D+?(\d{1,2}):(\d{2}):(\d{2})/);
+    if (!m) {
+        return null;
+    }
+    const [year, month, day, hour, minute, second] = m.slice(1).map(Number);
+    return new Date(Date.UTC(year, month - 1, day, hour - 8, minute, second));
+}
+
+async function sleepUntil(time) {
+    while (true) {
+        const remaining = time - Date.now();
+        if (remaining <= 0) {
+            return;
+        }
+        await new Promise(resolve => setTimeout(resolve, Math.min(remaining, 60 * 1000)));
+    }
+}
+
 async function waitUntilValid(page, url) {
     let i = 1;
     while (true) {
-        const now = new Date();
-        const taiwanTime = new Intl.DateTimeFormat('en-TW', {
-            timeZone: 'Asia/Taipei',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-        }).format(now);
+        const taiwanTime = formatTaiwanTime(new Date());
 
         console.log(`[${taiwanTime}] attempting... (${i})`);
         await page.goto(url, {waitUntil: "domcontentloaded"});
@@ -102,9 +150,18 @@ async function waitUntilValid(page, url) {
 
     try {
         const url = `https://cubing-tw.net/event/${config.event}/registration/select`;
-        const events = Array.isArray(competitor.events)
-            ? competitor.events.map(String).map(s => s.trim()).filter(Boolean)
-            : [];
+
+        const start = await getRegistrationStart(page, `https://cubing-tw.net/event/${config.event}/registration`);
+        if (start) {
+            const refreshAt = start.getTime() - REFRESH_LEAD_MS;
+            console.log(`registration starts at ${formatTaiwanTime(start)}`);
+            if (refreshAt > Date.now()) {
+                console.log(`waiting until ${formatTaiwanTime(new Date(refreshAt))} to start refreshing...`);
+                await sleepUntil(refreshAt);
+            }
+        } else {
+            console.log("cannot parse registration time, start refreshing now.");
+        }
 
         await waitUntilValid(page, url);
 
@@ -119,7 +176,6 @@ async function waitUntilValid(page, url) {
                 { type: "select", selector: "#form_birthday_month", value: competitor.month },
                 { type: "select", selector: "#form_birthday_day", value: competitor.day },
                 { type: "fill", selector: "#form_email", value: competitor.email },
-                ...events.map(ev => ({ type: "check", selector: `#form_event_${ev}` })),
             ];
         } else {
             await page.click('button.btn.btn-outline-primary.btn-lg');
@@ -135,11 +191,13 @@ async function waitUntilValid(page, url) {
                 { type: "select", selector: "#form_birthday_month", value: competitor.month },
                 { type: "select", selector: "#form_birthday_day", value: competitor.day },
                 { type: "fill", selector: "#form_email", value: competitor.email },
-                ...events.map(ev => ({ type: "check", selector: `#form_event_${ev}` })),
             ];
         }
 
-        await Promise.all(fields.map(f => fillField(page, f.type, f.selector, f.value)));
+        await Promise.all([
+            ...fields.map(f => fillField(page, f.type, f.selector, f.value)),
+            checkFirstEvent(page),
+        ]);
 
         await page.click('#BTN_Preview');
         console.log("Preview");
