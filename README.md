@@ -29,6 +29,10 @@
     `event`: 
     - for instance: `https://cubing-tw.net/event/2018TaiwanChampionship` -> `2018TaiwanChampionship`
 
+    `autosubmit_delay` (optional): seconds to wait after the preview shows up before clicking `報名送出 Send！` automatically.
+    - `-1` (default): disabled, click Send yourself
+    - `0`: submit immediately
+
 	Events are not configurable: the script registers for one event only, the first one available in the form, in this order:  
 	`33`, `22`, `44`, `55`, `66`, `77`, `3bld`, `3fmc`, `3oh`, `clock`, `mega`, `pyra`, `skewb`, `sq1`, `4bld`, `5bld`, `mbld`
 
@@ -36,6 +40,7 @@
 	```json
 	{
 	  "event": "2018TaiwanChampionship",
+	  "autosubmit_delay": -1,
 	  "competitor": {
 	    "wcaid": "2003BRUCH01",
 	    "year": "1970",
@@ -50,6 +55,7 @@
 	```json
 	{
 	  "event": "2018TaiwanChampionship",
+	  "autosubmit_delay": -1,
 	  "competitor": {
 	    "new": true,
 	    "local_name": "王小名",

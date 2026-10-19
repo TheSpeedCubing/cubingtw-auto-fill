@@ -1,5 +1,6 @@
 {
   "event": "2018TaiwanChampionship",
+  "autosubmit_delay": -1,
   "competitor": {
     "wcaid": "2003BRUCH01",
     "year": "1970",

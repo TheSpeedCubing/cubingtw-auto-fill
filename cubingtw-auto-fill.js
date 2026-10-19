@@ -5,6 +5,12 @@ const config = JSON.parse(fs.readFileSync("config.json", "utf-8"));
 
 const competitor = config.competitor;
 
+// seconds to wait after the preview shows up before clicking "報名送出 Send！", -1 to disable
+const AUTOSUBMIT_DELAY = Number(config.autosubmit_delay ?? -1);
+if (Number.isNaN(AUTOSUBMIT_DELAY)) {
+    throw new Error("autosubmit_delay must be a number of seconds, or -1 to disable");
+}
+
 async function fillField(page, type, selector, value) {
     await page.waitForSelector(selector);
     if (type === "fill") {
@@ -178,6 +184,16 @@ async function waitUntilValid(page, url) {
 
         await page.click('#BTN_Preview');
         console.log("Preview");
+
+        if (AUTOSUBMIT_DELAY >= 0) {
+            // the preview (with the token Send needs) is loaded by ajax after the modal opens
+            await page.waitForSelector('#Preview_main #modal_form_token', {state: "attached"});
+            await page.waitForSelector('#BTN_Send', {state: "visible"});
+            console.log(`auto submit in ${AUTOSUBMIT_DELAY} second(s)...`);
+            await page.waitForTimeout(AUTOSUBMIT_DELAY * 1000);
+            await page.click('#BTN_Send');
+            console.log("Send");
+        }
         console.log("DONE!");
     } catch (err) {
         console.error("ERROR：", err);
