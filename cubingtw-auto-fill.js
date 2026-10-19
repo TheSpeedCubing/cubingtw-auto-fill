@@ -1,54 +1,7 @@
 import { chromium } from "playwright";
 import fs from "fs";
 
-const args = process.argv.slice(2);
-let configFile = null;
-let configFromArgs = {};
-
-for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--config" && args[i + 1]) {
-        configFile = args[i + 1];
-        i++;
-    } else if (args[i].startsWith("--") && args[i + 1]) {
-        const key = args[i].slice(2);
-        configFromArgs[key] = args[i + 1];
-        i++;
-    } else {
-        console.error(`Invalid argument: ${args[i]}`);
-        process.exit(1);
-    }
-}
-
-if (configFile && Object.keys(configFromArgs).length > 0) {
-    console.error("Cannot use --config and other parameters at the same time.");
-    process.exit(1);
-}
-
-if (!configFile && Object.keys(configFromArgs).length === 0) {
-    console.error("Usage: node cubingtw-auto-fill.js --config <file> OR node cubingtw-auto-fill.js --<key> <value> ...");
-    process.exit(1);
-}
-
-let config;
-if (configFile) {
-    config = JSON.parse(fs.readFileSync(configFile, "utf-8"));
-} else {
-    config = {
-        event: configFromArgs.event,
-        competitor: {
-            new: configFromArgs.new === "true",
-            wcaid: configFromArgs.wcaid,
-            english_name: configFromArgs.english_name,
-            local_name: configFromArgs.local_name,
-            country: configFromArgs.country,
-            gender: configFromArgs.gender,
-            year: configFromArgs.year,
-            month: configFromArgs.month,
-            day: configFromArgs.day,
-            email: configFromArgs.email
-        }
-    };
-}
+const config = JSON.parse(fs.readFileSync("config.json", "utf-8"));
 
 const competitor = config.competitor;
 
@@ -98,19 +51,36 @@ function formatTaiwanTime(date) {
     }).format(date);
 }
 
-async function getRegistrationStart(page, url) {
+const DATETIME_RE = /(\d{4})\/(\d{1,2})\/(\d{1,2})\D+?(\d{1,2}):(\d{2}):(\d{2})/g;
+
+// "2026/10/19 (一) 20:00:00 ~ 2026/10/30 (五) 23:59:59" -> { start, end }
+function parsePeriod(text) {
+    const dates = [...text.matchAll(DATETIME_RE)].map(m => {
+        const [year, month, day, hour, minute, second] = m.slice(1).map(Number);
+        return new Date(Date.UTC(year, month - 1, day, hour - 8, minute, second));
+    });
+    if (dates.length === 0) {
+        return null;
+    }
+    return { start: dates[0], end: dates[1] ?? null };
+}
+
+async function getRegistrationPeriod(page, url) {
     await page.goto(url, {waitUntil: "domcontentloaded"});
-    const period = page.locator('h3:has-text("報名時間") + p').first();
-    if (await period.count() === 0) {
-        return null;
+    const closed = await page.locator('button.disabled', {hasText: "報名結束"}).count() > 0;
+
+    // when spots are released, a "重新開放報名時間：..." period is shown under the original one
+    const reopen = page.locator('p', {hasText: /重新開放報名時間：\s*\d{4}\//}).first();
+    if (await reopen.count() > 0) {
+        const period = parsePeriod(await reopen.textContent());
+        if (period) {
+            return { ...period, reopen: true, closed };
+        }
     }
-    const text = await period.textContent();
-    const m = text.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\D+?(\d{1,2}):(\d{2}):(\d{2})/);
-    if (!m) {
-        return null;
-    }
-    const [year, month, day, hour, minute, second] = m.slice(1).map(Number);
-    return new Date(Date.UTC(year, month - 1, day, hour - 8, minute, second));
+
+    const regular = page.locator('h3:has-text("報名時間") + p').first();
+    const period = await regular.count() > 0 ? parsePeriod(await regular.textContent()) : null;
+    return { start: null, end: null, ...period, reopen: false, closed };
 }
 
 async function sleepUntil(time) {
@@ -151,10 +121,17 @@ async function waitUntilValid(page, url) {
     try {
         const url = `https://cubing-tw.net/event/${config.event}/registration/select`;
 
-        const start = await getRegistrationStart(page, `https://cubing-tw.net/event/${config.event}/registration`);
+        const period = await getRegistrationPeriod(page, `https://cubing-tw.net/event/${config.event}/registration`);
+        if (period.closed || (period.end && period.end.getTime() <= Date.now())) {
+            console.log("registration has closed." + (period.end ? ` (ended at ${formatTaiwanTime(period.end)})` : ""));
+            await browser.close();
+            return;
+        }
+
+        const start = period.start;
         if (start) {
             const refreshAt = start.getTime() - REFRESH_LEAD_MS;
-            console.log(`registration starts at ${formatTaiwanTime(start)}`);
+            console.log(`${period.reopen ? "registration reopens" : "registration starts"} at ${formatTaiwanTime(start)}`);
             if (refreshAt > Date.now()) {
                 console.log(`waiting until ${formatTaiwanTime(new Date(refreshAt))} to start refreshing...`);
                 await sleepUntil(refreshAt);
