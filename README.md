@@ -69,10 +69,10 @@ Events are not configurable: the script registers for one event only, the first 
 {
   "event": "2018TaiwanChampionship",
   "competitor": {
-	"new": true,
+    "new": true,
     "local_name": "王小名",
     "english_name": "Xiao-Ming Wang",
-	"gender": "male",
+    "gender": "male",
     "country": "Taiwan",
     "year": "1970",
     "month": "1",
